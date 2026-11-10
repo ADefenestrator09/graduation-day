@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graduation</title>
+<style>
+:root{--g:#D4AF37;--bg:#121212;--card:#1e1b12;--line:#3a3315;--t:#f5efdc}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--t);font:16px system-ui,sans-serif}
+button{font:600 15px system-ui;color:var(--t);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer}
+button:hover{border-color:var(--g)}button.on{background:var(--g);color:#141414;border-color:var(--g)}
+header{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font:700 18px Georgia,serif;margin:0 auto 0 0;color:var(--g)}
+main{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:16px;padding:16px}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+.panel{display:none;flex-direction:column;gap:8px}.panel.show{display:flex}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.list{display:flex;flex-direction:column;gap:6px;max-height:46vh;overflow:auto}.list button{text-align:left}
+.now{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px}
+.now b{display:block;font:700 20px Georgia,serif;color:var(--g)}
+.wrap{position:relative;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;border:1px solid var(--line);border-radius:8px}
+.stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;font-family:Georgia,serif;color:#f5efdc;
+ background:radial-gradient(ellipse at 50% 40%,#2a2410,#121212 70%);display:flex;align-items:center;justify-content:center}
+.stage *{animation:f .7s both}@keyframes f{from{opacity:0}to{opacity:1}}
+.au{flex-direction:column;gap:18px;text-align:center}.au img{width:380px;height:314px;object-fit:contain;background:#D4AF37;border-radius:24px;padding:10px}
+.au h2{font-size:84px;margin:0}.au p{font:500 24px system-ui;letter-spacing:.35em;color:#D4AF37;margin:0;text-transform:uppercase}
+.nm{display:flex;gap:70px;align-items:center;padding:0 90px;width:100%}
+.ph{width:420px;height:560px;flex:none;border:8px solid #D4AF37;border-radius:6px;background:#2a2410;object-fit:cover;display:flex;align-items:center;justify-content:center}
+.nm small{font:500 22px system-ui;letter-spacing:.3em;color:#D4AF37}.nm h2{font-size:92px;line-height:1.05;margin:14px 0 18px}
+.nm .pl{font-size:30px;font-style:italic;color:#d8d0b4}.nm .aw{font:500 22px system-ui;color:#D4AF37;margin-top:14px}
+.stage canvas{width:100%;height:100%;object-fit:contain}
+.aud-body header,.aud-body main{display:none}.aud-body .wrap{position:fixed;inset:0;border:0;border-radius:0;aspect-ratio:auto;width:100vw;height:100vh}
+</style></head>
+<body>
+<header><h1 id="ttl"></h1>
+<button data-t="audio">1 Audio</button><button data-t="names">2 Graduates</button><button data-t="slides">3 Slides</button>
+<button id="blank">B Blank screen</button><button id="open">Audience window</button></header>
+<main>
+ <div>
+  <section class="panel" id="p-audio"><div class="now"><b id="aT">–</b><span id="aS"></span></div>
+   <div class="row"><button id="aPlay">Play</button><button id="aNext">Next track</button></div><div class="list" id="aL"></div></section>
+  <section class="panel" id="p-names"><div class="now"><b id="nT">–</b><span id="nS"></span></div>
+   <div class="row"><button id="nPrev">‹ Previous</button><button id="nNext">Next graduate ›</button></div><div class="list" id="nL"></div></section>
+  <section class="panel" id="p-slides"><div class="now"><b id="sT">–</b><span>Slide</span></div>
+   <div class="row"><button id="sPrev">‹ Back</button><button id="sNext">Next ›</button></div></section>
+ </div>
+ <div><div class="wrap" id="pv"><div class="stage" id="pvs"></div></div></div>
+</main>
+<div class="wrap" id="aw" hidden><div class="stage" id="aws"></div></div>
+<audio id="au"></audio>
+<script src="config.js"></script>
+<script src="lib/pdf_min.js"></script>
+<script>
+const CFG=window.GRAD_CONFIG||{},$=id=>document.getElementById(id),AUD=/view=audience/.test(location.search);
+const G=CFG.graduates||[],T=CFG.tracks||[];
+let S={tab:"audio",g:0,s:0,blank:false},pdf=null,N=0,tr=0;
+const chan="BroadcastChannel" in window?new BroadcastChannel("grad-day"):null;
+const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const CAP='<svg width="160" height="160" viewBox="0 0 64 64" fill="#D4AF37" aria-hidden="true"><path d="M32 10 2 24l30 14 30-14z"/><path d="M14 33v12c0 4 8 8 18 8s18-4 18-8V33L32 43z" opacity=".7"/></svg>';
+function html(){
+ if(S.blank)return"";
+ if(S.tab==="names"){const g=G[S.g]||{};
+  return `<div class="nm"><div class="ph" id="ph"><img src="${esc(g.photo)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='${CAP.replace(/'/g,"\\'")}'"></div><div><small>${esc(CFG.subtitle)} · ${esc(CFG.title)}</small><h2>${esc(g.name)}</h2>${g.plans?`<div class="pl">${esc(g.plans)}</div>`:""}${g.award?`<div class="aw">${esc(g.award)}</div>`:""}</div></div>`;}
+ if(S.tab==="slides")return pdf?"<canvas></canvas>":`<div class="au"><p>No slides loaded</p></div>`;
+ return `<div class="au"><img src="${esc(CFG.logo)}" alt="" onerror="this.remove()"><h2>${esc(CFG.title)}</h2><p>${esc(CFG.subtitle)}</p></div>`;
+}
+function stage(el){el.className="stage"+(S.tab==="audio"&&!S.blank?" au":"");el.innerHTML=html();
+ if(!S.blank&&S.tab==="slides"&&pdf)draw(el.querySelector("canvas"),S.s);}
+async function draw(c,i){const p=await pdf.getPage(i+1),v0=p.getViewport({scale:1}),v=p.getViewport({scale:1920/v0.width});
+ c.width=v.width;c.height=v.height;await p.render({canvasContext:c.getContext("2d"),viewport:v}).promise;}
+function fit(w,s){const a=w.clientWidth,b=w.clientHeight,k=Math.min(a/1280,b/720);s.style.transform=`translate(${(a-1280*k)/2}px,${(b-720*k)/2}px) scale(${k})`;}
+function render(){
+ stage(AUD?$("aws"):$("pvs"));fit(AUD?$("aw"):$("pv"),AUD?$("aws"):$("pvs"));if(AUD)return;
+ document.querySelectorAll("[data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===S.tab));
+ ["audio","names","slides"].forEach(n=>$("p-"+n).classList.toggle("show",n===S.tab));$("blank").classList.toggle("on",S.blank);
+ $("nT").textContent=(G[S.g]||{}).name||"–";$("nS").textContent=G.length?`Graduate ${S.g+1} of ${G.length}`:"";
+ [...$("nL").children].forEach((b,i)=>b.classList.toggle("on",i===S.g));
+ $("sT").textContent=N?`${S.s+1} / ${N}`:"No slides loaded";
+ $("aT").textContent=(T[tr]||{}).title||"–";$("aS").textContent=$("au").paused?"Paused":"Playing";$("aPlay").textContent=$("au").paused?"Play":"Pause";
+ [...$("aL").children].forEach((b,i)=>b.classList.toggle("on",i===tr));
+}
+function set(p){S=Object.assign({},S,p);S.g=Math.max(0,Math.min(G.length-1,S.g));S.s=Math.max(0,Math.min(Math.max(N-1,0),S.s));render();if(chan)chan.postMessage(S);}
+function track(i){tr=i;$("au").src=T[i].src;render();}
+async function loadPdf(){if(!CFG.slidesPdf||!window.pdfjsLib)return;try{pdfjsLib.GlobalWorkerOptions.workerSrc="lib/pdf_worker_min.js";
+ pdf=await pdfjsLib.getDocument(CFG.slidesPdf).promise;N=pdf.numPages;render();}catch(e){}}
+if(AUD){document.body.classList.add("aud-body");$("aw").hidden=false;
+ if(chan){chan.onmessage=e=>{if(e.data&&!e.data.hello){S=e.data;render();}};chan.postMessage({hello:1});}
+ addEventListener("click",()=>document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen());
+ addEventListener("resize",render);loadPdf().then(()=>chan&&chan.postMessage({hello:1}));render();
+}else{
+ $("ttl").textContent=CFG.title||"Graduation";
+ G.forEach((g,i)=>{const b=document.createElement("button");b.textContent=(i+1)+". "+g.name;b.onclick=()=>set({g:i});$("nL").appendChild(b);});
+ T.forEach((t,i)=>{const b=document.createElement("button");b.textContent=(i+1)+". "+t.title;b.onclick=()=>track(i);$("aL").appendChild(b);});
+ if(T.length)track(0);
+ document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>set({tab:b.dataset.t}));
+ $("blank").onclick=()=>set({blank:!S.blank});
+ $("open").onclick=()=>window.open(location.pathname+"?view=audience","grad-audience","popup=yes,width=1280,height=720");
+ $("nPrev").onclick=()=>set({g:S.g-1});$("nNext").onclick=()=>set({g:S.g+1});
+ $("sPrev").onclick=()=>set({s:S.s-1});$("sNext").onclick=()=>set({s:S.s+1});
+ $("aPlay").onclick=()=>{$("au").paused?$("au").play():$("au").pause();};$("aNext").onclick=()=>track((tr+1)%T.length);
+ ["play","pause"].forEach(e=>$("au").addEventListener(e,render));
+ if(chan)chan.onmessage=e=>{if(e.data&&e.data.hello)chan.postMessage(S);};
+ addEventListener("keydown",e=>{const k=e.key,d={ArrowRight:1,ArrowLeft:-1}[k];
+  if(k==="1")set({tab:"audio"});else if(k==="2")set({tab:"names"});else if(k==="3")set({tab:"slides"});else if(k==="b"||k==="B")set({blank:!S.blank});
+  else if(S.tab==="audio"&&k===" "){e.preventDefault();$("aPlay").click();}
+  else if(S.tab==="names"&&(d||k===" ")){e.preventDefault();set({g:S.g+(d||1)});}
+  else if(S.tab==="slides"&&(d||k===" ")){e.preventDefault();set({s:S.s+(d||1)});}});
+ addEventListener("resize",render);loadPdf().then(()=>set({}));render();
+}
+</script></body></html>
